@@ -136,6 +136,9 @@ bool GifImageSource::RenderFrame()
 }
 
 // Convert raw frames into final displayable frames
+// This conversion is necessary because a raw frame is usually rendered by drawing it on top of
+// the previous frame. Each displayable frame is therefore the composition of the current frame
+// and all the frames that were drawn before it.
 void GifImageSource::PrerenderBitmaps()
 {
     ComPtr<IWICImagingFactory> pFactory;
@@ -155,6 +158,7 @@ void GifImageSource::PrerenderBitmaps()
 
     for (UINT dwIndex = 0; dwIndex < m_dwFrameCount; dwIndex++)
     {
+        // Draw current frame on top of the previous frames with accounting for transparency
         m_d2dContext->DrawImage(m_bitmaps.at(dwIndex).Get(), m_offsets.at(dwIndex));
         m_d2dContext->Flush();
 
@@ -164,6 +168,8 @@ void GifImageSource::PrerenderBitmaps()
         ComPtr<ID2D1Bitmap> pBitmap;
         hr = m_d2dContext->CreateBitmapFromWicBitmap(pWicBitmap.Get(), &pBitmap);
 
+        // Take a snapshot of the current image and store it into the ID2D1Bitmap.
+        // This is the final displayable frame at this frame index.
         hr = pBitmap->CopyFromBitmap(&dest, m_surfaceBitmap.Get(), &src);
 
         m_bitmaps.at(dwIndex) = pBitmap;
@@ -228,6 +234,7 @@ void GifImageSource::LoadImage(IStream *pStream)
     PROPVARIANT var;
     PropVariantInit(&var);
 
+    // IWICImagingFactory is where it all begins
     ComPtr<IWICImagingFactory> pFactory;
     hr = CoCreateInstance(CLSID_WICImagingFactory,
         NULL,
@@ -235,15 +242,18 @@ void GifImageSource::LoadImage(IStream *pStream)
         IID_IWICImagingFactory,
         (LPVOID*) &pFactory);
 
+    // IWICBitmapDecoder is roughly analogous to BitmapDecoder
     ComPtr<IWICBitmapDecoder> pDecoder;
     hr = pFactory->CreateDecoderFromStream(pStream, NULL, WICDecodeMetadataCacheOnDemand, &pDecoder);
 
+    // IWICMetadataQueryReader is roughly analogous to BitmapPropertiesView
     ComPtr<IWICMetadataQueryReader> pQueryReader;
     hr = pDecoder->GetMetadataQueryReader(&pQueryReader);
 
     // Get image metadata
     hr = QueryMetadata(pQueryReader.Get());
 
+    // Get frame count
     UINT dwFrameCount = 0;
     hr = pDecoder->GetFrameCount(&dwFrameCount);
 
@@ -252,28 +262,35 @@ void GifImageSource::LoadImage(IStream *pStream)
     m_offsets = std::vector<D2D1_POINT_2F>(m_dwFrameCount);
     m_delays = std::vector<USHORT>(m_dwFrameCount);
 
+    // Get and convert each frame bitmap into ID2D1Bitmap
     for (UINT dwFrameIndex = 0; dwFrameIndex < dwFrameCount; dwFrameIndex++)
     {
+        // IWICBitmapFrameDecode is roughly analogous to BitmapFrame
         ComPtr<IWICBitmapFrameDecode> pFrameDecode;
         hr = pDecoder->GetFrame(dwFrameIndex, &pFrameDecode);
 
+        // Need to get delay and offset metadata for each frame
         ComPtr<IWICMetadataQueryReader> pFrameQueryReader;
         hr = pFrameDecode->GetMetadataQueryReader(&pFrameQueryReader);
 
         FLOAT fOffsetX = 0.0;
         FLOAT fOffsetY = 0.0;
-        USHORT dwDelay = 10; // default to 10 hundreths of a second (100 ms)
+        USHORT dwDelay = 10; // default to 10 hundredths of a second (100 ms)
 
+        // Get delay
         PropVariantClear(&var);
         hr = pFrameQueryReader->GetMetadataByName(L"/grctlext/Delay", &var);
         dwDelay = var.uiVal;
 
         if (dwFrameIndex == 0)
         {
+            // If this is the first frame, use the size of this frame as the size of the
+            // entire image. Assume offset is (0,0).
             hr = pFrameDecode->GetSize((UINT*) &m_width, (UINT*) &m_height);
         }
         else
         {
+            // Get offset
             PropVariantClear(&var);
             hr = pFrameQueryReader->GetMetadataByName(L"/imgdesc/Left", &var);
             fOffsetX = var.uiVal;
@@ -283,14 +300,18 @@ void GifImageSource::LoadImage(IStream *pStream)
             fOffsetY = var.uiVal;
         }
 
+        // Set up converter 
         ComPtr<IWICFormatConverter> pConvertedBitmap;
         hr = pFactory->CreateFormatConverter(&pConvertedBitmap);
 
+        // Convert bitmap to B8G8R8A8
         hr = pConvertedBitmap->Initialize(pFrameDecode.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, NULL, 0, WICBitmapPaletteTypeCustom);
 
+        // Store converted bitmap into IWICBitmap so D2D can use it
         ComPtr<IWICBitmap> pWicBitmap;
         hr = pFactory->CreateBitmapFromSource(pConvertedBitmap.Get(), WICBitmapCacheOnDemand, &pWicBitmap);
 
+        // Finally, get ID2D1Bitmap for this frame
         ComPtr<ID2D1Bitmap> pBitmap;
         hr = m_d2dContext->CreateBitmapFromWicBitmap(pWicBitmap.Get(), &pBitmap);
 

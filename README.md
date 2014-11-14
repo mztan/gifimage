@@ -15,5 +15,6 @@ Loads, decodes, renders, and animates GIFs for your viewing pleasure! Built usin
 
 #### To Do
 * Implement rolling window buffering to better handle unusually large GIFs.
+* Handle frames that have disposal method set to "Restore to background color" and "Restore to previous".
 
 Comments and pull requests are more than welcome.
