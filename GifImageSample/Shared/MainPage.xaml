@@ -1,0 +1,27 @@
+﻿<Page
+    x:Class="GifImageSample.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:GifImageSample"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:Em.UI.Xaml.Controls"
+    mc:Ignorable="d">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <controls:GifImage x:Name="_gifImage"/>
+        
+        <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Grid.Row="1">
+            <AppBarButton Label="load" Icon="Download" Click="Load_Click"/>
+            <AppBarButton Label="unload" Icon="Cancel" Click="Unload_Click"/>
+            <AppBarButton Label="play" Icon="Play" Click="Play_Click"/>
+            <AppBarButton Label="pause" Icon="Pause" Click="Pause_Click"/>
+        </StackPanel>
+
+    </Grid>
+</Page>
