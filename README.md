@@ -1,7 +1,7 @@
 gifimage
 ========
 
-Loads, decodes, renders, and animates GIFs for your viewing pleasure! Built using Direct2D and the Windows Runtime. Supports Windows 8+ and Windows Phone 8.1+.
+Loads, decodes, renders, and animates GIFs for your viewing pleasure! Built using Direct2D, WIC, and the Windows Runtime. Supports Windows 8+ and Windows Phone 8.1+.
 
 #### Usage
 * Add reference to Em.UI.Xaml.Media.GifImageSource in your app
